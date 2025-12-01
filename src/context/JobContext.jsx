@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { normalizeStatus } from '../utils/status'; // <-- ضيفي هذا الاستيراد في أعلى الملف
 
 const JobContext = createContext(undefined);
 
@@ -59,6 +60,79 @@ export function JobProvider({ children }) {
     URL.revokeObjectURL(url);
   };
 
+  // const importJobs = (file) => {
+  //   return new Promise((resolve, reject) => {
+  //     const reader = new FileReader();
+  //     reader.onload = (e) => {
+  //       try {
+  //         const content = e.target?.result;
+  //         const importedJobs = JSON.parse(content);
+
+  //         // Validate the imported data
+  //         if (!Array.isArray(importedJobs)) {
+  //           reject(new Error('Invalid file format'));
+  //           return;
+  //         }
+
+  //         // Merge imported jobs with existing ones, deduping by id or by (companyName, jobTitle, applicationDate)
+  //         setJobs((prev) => {
+  //           // Create a map of existing jobs keyed by id
+  //           const byId = new Map(prev.map((j) => [j.id, j]));
+
+  //           // Also index by composite key for entries that don't have ids or to detect duplicates
+  //           const byComposite = new Map();
+  //           prev.forEach((j) => {
+  //             const comp = `${j.companyName}::${j.jobTitle}::${j.applicationDate || ''}`;
+  //             byComposite.set(comp, j.id);
+  //           });
+
+  //           for (const rawJob of importedJobs) {
+  //             if (!rawJob || typeof rawJob !== 'object') {
+  //               // Skip invalid entries
+  //               continue;
+  //             }
+
+  //             const job = { ...rawJob };
+
+  //             // Ensure every job has an ID
+  //             if (!job.id) {
+  //               job.id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  //             }
+
+  //             // If an existing job with the same id exists, replace/update it with the imported one
+  //             if (byId.has(job.id)) {
+  //               byId.set(job.id, job);
+  //               const comp = `${job.companyName}::${job.jobTitle}::${job.applicationDate || ''}`;
+  //               byComposite.set(comp, job.id);
+  //               continue;
+  //             }
+
+  //             // If an existing job with the same composite key exists, update that existing job (avoid duplicates)
+  //             const comp = `${job.companyName}::${job.jobTitle}::${job.applicationDate || ''}`;
+  //             if (byComposite.has(comp)) {
+  //               const existingId = byComposite.get(comp);
+  //               byId.set(existingId, { ...job, id: existingId });
+  //               continue;
+  //             }
+
+  //             // Otherwise add as a new job
+  //             byId.set(job.id, job);
+  //             byComposite.set(comp, job.id);
+  //           }
+
+  //           return Array.from(byId.values());
+  //         });
+
+  //         resolve();
+  //       } catch (error) {
+  //         reject(error);
+  //       }
+  //     };
+  //     reader.onerror = () => reject(new Error('Error reading file'));
+  //     reader.readAsText(file);
+  //   });
+  // };
+
   const importJobs = (file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -91,11 +165,23 @@ export function JobProvider({ children }) {
                 continue;
               }
 
-              const job = { ...rawJob };
+              // Create a shallow copy and normalize fields BEFORE merging
+              const job = {
+                ...rawJob,
+                companyName: rawJob.companyName ?? '',
+                jobTitle: rawJob.jobTitle ?? '',
+                // Normalize status here (THE KEY)
+                status: normalizeStatus(rawJob.status),
+                // Ensure a valid date string (fallback to today)
+                applicationDate: rawJob.applicationDate ?? new Date().toISOString().split('T')[0],
+                notes: rawJob.notes ?? '',
+              };
 
-              // Ensure every job has an ID
+              // Ensure every job has an ID (after normalizing)
               if (!job.id) {
-                job.id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+                job.id = typeof crypto !== 'undefined' && crypto.randomUUID
+                  ? crypto.randomUUID()
+                  : `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
               }
 
               // If an existing job with the same id exists, replace/update it with the imported one
@@ -110,6 +196,7 @@ export function JobProvider({ children }) {
               const comp = `${job.companyName}::${job.jobTitle}::${job.applicationDate || ''}`;
               if (byComposite.has(comp)) {
                 const existingId = byComposite.get(comp);
+                // keep existingId but replace fields with normalized job
                 byId.set(existingId, { ...job, id: existingId });
                 continue;
               }
@@ -119,7 +206,13 @@ export function JobProvider({ children }) {
               byComposite.set(comp, job.id);
             }
 
-            return Array.from(byId.values());
+            const next = Array.from(byId.values());
+            try {
+              localStorage.setItem('jobs', JSON.stringify(next));
+            } catch (e) {
+              console.error('Failed to save jobs to localStorage', e);
+            }
+            return next;
           });
 
           resolve();
