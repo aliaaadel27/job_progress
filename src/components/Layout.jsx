@@ -13,7 +13,6 @@ export function Layout({ children }) {
     if (file) {
       try {
         await importJobs(file);
-        
         toast.success('Jobs imported successfully!'); 
       } catch (error) {
         
@@ -31,7 +30,7 @@ export function Layout({ children }) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-800/90 text-gray-100">
+    <div className="min-h-screen bg-gray-800/90 text-gray-100 overflow-x-hidden">
       <header className="bg-gray-900 border-b border-gray-700 sticky top-0 z-10 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
