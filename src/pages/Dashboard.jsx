@@ -1,12 +1,16 @@
 import { useState, useMemo } from 'react';
 import { useJobs } from '../context/JobContext';
 import { JobCard } from '../components/JobCard';
-import { Search, Filter, Briefcase } from 'lucide-react';
+import { Search, Filter, Briefcase, Download, Upload } from 'lucide-react';
+import { toast } from 'sonner';
+
 
 export function Dashboard() {
   const { jobs } = useJobs();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const { exportJobs, importJobs } = useJobs();
+
 
   const filteredJobs = useMemo(() => {
     return jobs.filter((job) => {
@@ -27,6 +31,27 @@ export function Dashboard() {
       rejected: jobs.filter((j) => j.status === 'Rejected').length,
     };
   }, [jobs]);
+  
+  const handleImport = async (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        await importJobs(file);
+        toast.success('Jobs imported successfully!'); 
+      // eslint-disable-next-line no-unused-vars
+      } catch (error) {
+          
+        toast.error('Failed to import jobs. Please check the file format.'); 
+      }
+      // Reset the input
+      e.target.value = '';
+    }
+  };
+  
+  const handleExport = () => {
+    exportJobs();
+    toast.success('Jobs exported successfully!'); 
+    };
 
   return (
     <div className="space-y-6">
@@ -34,6 +59,31 @@ export function Dashboard() {
         <h1 className="text-white-950 mb-2">Job Applications Dashboard</h1>
         <p className="text-gray-400">Track and manage your job applications in one place</p>
       </div>
+      {/* Import/Export Buttons */}
+              <div className="flex items-center gap-2 ml-2 pl-2 border-l border-gray-700">
+                {/* Export Button */}
+                <button
+                  onClick={handleExport}
+                  className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors cursor-pointer"
+                  title="Export jobs" 
+                >
+                  <Upload className="w-5 h-5" />
+                </button>
+                
+                {/* Import Button */}
+                <label
+                  className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors cursor-pointer"
+                  title="Import jobs" 
+                >
+                  <Download className="w-5 h-5" />
+                  <input
+                    type="file"
+                    accept=".json"
+                    onChange={handleImport}
+                    className="hidden"
+                  />
+                </label>
+              </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
